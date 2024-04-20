@@ -3,6 +3,7 @@ load("render.star", "render")
 load("http.star", "http")
 #from datetime import datetime, timezone, timedelta
 
+# Import the required libraries
 
 def get_request():
     sat = '25544'
@@ -24,7 +25,7 @@ def get_request():
     data = response.json()
     return data
 
-def filter_pass(data):
+def filter_pass(data, el, mag):
     filtered_passes = [pass_data for pass_data in data['passes'] if pass_data['maxEl'] > el and pass_data['mag'] < mag]
     return filtered_passes
 
@@ -40,6 +41,47 @@ def print_pass(filtered_passes):
         print()
 
 def main(config):
+    el = 20
+    mag = 0
     data = get_request()
-    filtered_passes = filter_pass(data)
+    filtered_passes = filter_pass(data, el, mag)
     print_pass(filtered_passes)
+
+    # Get font from config or default to "tb-8"
+    font = config.get("font", "tb-8")
+    print("Using font: '{}'".format(font)) # Debug print the font being used
+
+    # Build the render tree
+    return render.Root(
+        child = render.Column(
+            cross_align="center",
+            children = [
+                # Create a horizontal colored box
+                render.Box(
+                    width = 64,
+                    height = 1,
+                    color = "#78DECC",
+                    padding = 10
+                ),
+                # Display the greeting text
+                render.Text("%s" % greeting["greeting"], font = font, color = "#FF0000"),
+                # Another horizontal colored box
+                render.Box(
+                    width = 64,
+                    height = 1,
+                    color = "#78DECC",
+                ),
+                # Scrolling marquee text to display the greeting in its native language
+                render.Marquee(
+                    width = 64,
+                    child = render.Text("Good Morning in %s" % greeting["language"], font = font)
+                ),
+                # Final horizontal colored box
+                render.Box(
+                    width = 64,
+                    height = 1,
+                    color = "#78DECC",
+                ),
+            ],
+        ),
+    )
