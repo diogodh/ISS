@@ -1,5 +1,5 @@
 '''
-Applet: ISS Passes
+Applet: ISS
 Summary: Shows visible ISS passes
 Description: Displays time, location and magnitude of International Space Station passes
 Author: Diogo Ribeiro Machado
@@ -35,7 +35,7 @@ load("encoding/json.star", "json")
 load("render.star", "render")
 load("schema.star", "schema")
 load("time.star", "time")
-#load("secret.star", "secret")
+load("secret.star", "secret")
 load("http.star", "http")
 
 # Defaults
@@ -58,7 +58,7 @@ SAT_ID = '25544' # ISS code
 NUM_DAYS = '1' # passes for the next 2 days
 MIN_DURATION = '10' # minimum time of visible pass
 #API_KEY = 'ACDRCD-Z7US6X-WD9ZXB-58TV'
-#API_KEY = secret.decrypt("ACDRCD-Z7US6X-WD9ZXB-58TV")
+
 
 
 
@@ -109,7 +109,7 @@ def get_request(lat, lng, api_key):
 
     #https://api.n2yo.com/rest/v1/satellite/visualpasses/25544/38.74/-9.14/0/2/10/&apiKey=ACDRCD-Z7US6X-WD9ZXB-58TV
     url = 'https://api.n2yo.com/rest/v1/satellite/visualpasses/%s/%s/%s/%s/%s/%s/&apiKey=%s' % (SAT_ID, lat, lng, ALTITUDE, NUM_DAYS, MIN_DURATION, api_key)
-    response = http.get(url)
+    response = http.get(url, ttl_seconds = 3600)
         
     if response.status_code != 200:
         fail("API request failed with status %d" % response.status_code)
@@ -123,8 +123,9 @@ def filter_pass(data):
 
 def main(config):
     
-    api_key = config.get("apiKey")
-
+    #api_key = config.get("apiKey", None)
+    #api_key = secret.decrypt("AV6+xWcEvzMwMjDopeYhz7Sgvzl61DC1GYYV6/TFcu2g+wlhvXg3QkXOUBGq9GK6rOeQWw1puCSqg45mULja/ZhcrBSoWSWmA6yG+1t50xA5AW+slpSHXut/NYOTNlvFhAk0J8LWFNMsETuS8DlCKYaPkXI9SoGXlC3zHpngfA==")
+    api_key = "ACDRCD-Z7US6X-WD9ZXB-58TV"
     # Get longditude and latitude from location
     location = json.decode(config.get("location", DEFAULT_LOCATION))
     lat = float(location["lat"])
@@ -134,8 +135,9 @@ def main(config):
     display24hour = config.bool("24_hour", DEFAULT_24_HOUR)
 
     data = get_request(lat, lng, api_key)
-    
+        
     filtered_passes = filter_pass(data)
+
     #filtered_passes = filter_pass(data, MIN_ELEVATION, MIN_MAGNITUDE)
 
     if filtered_passes:  # Check if there are any filtered passes
