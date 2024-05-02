@@ -37,6 +37,8 @@ load("schema.star", "schema")
 load("time.star", "time")
 load("secret.star", "secret")
 load("http.star", "http")
+load("cache.star", "cache")
+
 
 # Defaults
 DEFAULT_LOCATION = """
@@ -57,9 +59,8 @@ ALTITUDE = 0 # location altitude
 SAT_ID = '25544' # ISS code
 NUM_DAYS = '1' # passes for the next 2 days
 MIN_DURATION = '10' # minimum time of visible pass
+TTL_TIME = 3600
 #API_KEY = 'ACDRCD-Z7US6X-WD9ZXB-58TV'
-
-
 
 
 # Images
@@ -74,6 +75,102 @@ iVBORw0KGgoAAAANSUhEUgAAABEAAAAJCAYAAADU6McMAAAACXBIWXMAAA0SAAANEgG1gDd0AAAGlmlU
 MAG_IMG = base64.decode("""
 iVBORw0KGgoAAAANSUhEUgAAAAwAAAAJCAYAAAAGuM1UAAAACXBIWXMAAA7EAAAOxAGVKw4bAAAGlmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgOS4wLWMwMDEgNzkuMTRlY2I0MiwgMjAyMi8xMi8wMi0xOToxMjo0NCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI0LjIgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyNC0wNC0zMFQxNjozOToyNSswMTowMCIgeG1wOk1vZGlmeURhdGU9IjIwMjQtMDUtMDFUMTM6MDI6NTArMDE6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjQtMDUtMDFUMTM6MDI6NTArMDE6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjYxODEyZTFmLTY2NDAtYWQ0Ni1iNDFiLWI0ODU4YzRhM2U1NyIgeG1wTU06RG9jdW1lbnRJRD0iYWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjQyYzQ1ZWFjLTZmOTAtZjg0Zi04YzIxLWM0MTUxNjcyYWEwYyIgeG1wTU06T3JpZ2luYWxEb2N1bWVudElEPSJ4bXAuZGlkOjIwOGIwNmVhLTVmYzMtN2I0OC04NzM1LWFmMDhkY2I4OWU1YSI+IDx4bXBNTTpIaXN0b3J5PiA8cmRmOlNlcT4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImNyZWF0ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6MjA4YjA2ZWEtNWZjMy03YjQ4LTg3MzUtYWYwOGRjYjg5ZTVhIiBzdEV2dDp3aGVuPSIyMDI0LTA0LTMwVDE2OjM5OjI1KzAxOjAwIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgMjQuMiAoV2luZG93cykiLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOjIxZjE0N2EzLWFmZWItOWI0YS1hYTZhLTM2ZmNjMDcwOThiYyIgc3RFdnQ6d2hlbj0iMjAyNC0wNC0zMFQxNjo0MDozMiswMTowMCIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIDI0LjIgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo2MTgxMmUxZi02NjQwLWFkNDYtYjQxYi1iNDg1OGM0YTNlNTciIHN0RXZ0OndoZW49IjIwMjQtMDUtMDFUMTM6MDI6NTArMDE6MDAiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCAyNC4yIChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz57oqDeAAABvUlEQVQY0wXBTUgUUQAH8P+befveOjO7mZPjsLgNpbC6H7IllBVGl6RLhIc8GOKtox2CwEJP0aVDh6K0OgRFUOAhJAQvBZZEEaZrLlhJwiqyzjqbq87bj5nt9yMnOiMAAM8n0IJ1aEzETL10IxVjFwKKoRN/z87lnPnXs/rDDSe8REVFAgCIqgQK99S13p13l/ovm6HOUfxeLcJ180Yf/xxPWS/7774iA/KZZABNoRo4rern4/ajwaGr6YaTU2hpjkJvseC4R/BpNY3edE05pn7tpj2xIhgL4MCtRCKH0CO0bqiNBACgNDCc7mqEoBacwjkcbX7RKjOtHd9WqvixFs5zVvNSrZsXqdIHT23CvguUEQT3c+Drt/BmJjcrh/QElrOb2LJdcBrtOFzPXhH2Wzi7FaDsYO3nNEqLI5ieWfw49SV6nXQlkrALxbOjY+PP/y5/N7Lzk2NtFn7l9zFwPCrrzj+/sLAizW3vGe/DYbZDDdO8c+/+g9sSlfnTiWc32xQ8EZ6GzB/yoSJKfLccLC+tG55l+mABHzQeTwxnMgvbk48nhoSQ5pIdFJQCmip5iooDT5YQ5D4IqQMg+A+5sqYu0sG3EQAAAABJRU5ErkJggg==
 """)
+
+def get_data(url, ttl_time):
+    res = http.get(url, ttl_seconds=ttl_time) # cache for 1 hour
+    if res.status_code != 200:
+        fail("GET %s failed with status %d: %s", url, res.status_code, res.body())
+    return res.json()
+    
+
+def main(config):
+    #api_key = config.get("apiKey", None)
+    #api_key = secret.decrypt("AV6+xWcEvzMwMjDopeYhz7Sgvzl61DC1GYYV6/TFcu2g+wlhvXg3QkXOUBGq9GK6rOeQWw1puCSqg45mULja/ZhcrBSoWSWmA6yG+1t50xA5AW+slpSHXut/NYOTNlvFhAk0J8LWFNMsETuS8DlCKYaPkXI9SoGXlC3zHpngfA==")
+    display24hour = config.bool("24_hour", DEFAULT_24_HOUR)
+    api_key = "ACDRCD-Z7US6X-WD9ZXB-58TV"
+    location = json.decode(config.get("location", DEFAULT_LOCATION))
+    lat = float(location["lat"])
+    lng = float(location["lng"])
+    timezone = location["timezone"]
+    ttl_time = 3600
+
+    url = 'https://api.n2yo.com/rest/v1/satellite/visualpasses/%s/%s/%s/%s/%s/%s/&apiKey=%s' % (SAT_ID, lat, lng, ALTITUDE, NUM_DAYS, MIN_DURATION, api_key)
+        
+    data = get_data(url, ttl_time)
+        
+    filtered_passes = [pass_data for pass_data in data['passes'] if pass_data['maxEl'] > MIN_ELEVATION and pass_data['mag'] < MIN_MAGNITUDE]
+
+    if filtered_passes:  # Check if there are any filtered passes
+        # Take information only from the first pass
+        first_pass_data = filtered_passes[0]
+        utc_time_seconds = int(first_pass_data['startUTC'])  # Convert to integer
+        ttl_time =  utc_time_seconds - time.now().unix
+
+        start_compass = first_pass_data['startAzCompass']
+        magnitude = first_pass_data['mag']
+        
+        # Convert UTC time to human-readable format
+        utc_time = time.from_timestamp(utc_time_seconds)
+        final_time = utc_time.in_location(timezone)
+
+
+        if display24hour:
+            time_human_readable = final_time.format("15:04")  # Adjust format string
+        else:
+            time_human_readable = final_time.format("3:04 PM")  # Adjust format string
+
+     
+        col1 = render.Column(
+            expanded= True,
+            main_align="space_between",
+            cross_align="center",  
+            children=[
+                render.Image(src=ISS_IMG),
+                render.Image(src=MAG_IMG),
+                render.Image(src=EYE_IMG),
+           ],
+        )
+        
+        col2 = render.Column(
+            expanded= True,
+            main_align="space_between",
+            cross_align="center",  
+            children=[
+                render.Text("   "),
+                render.Text("   "),
+                render.Text("   "),
+           ],
+        )
+
+
+        col3 = render.Column(
+            expanded= True,
+            main_align="space_around",
+            cross_align="center",  # Center align text vertically
+            children=[
+                render.Text("%s" % time_human_readable, color="#FF0000", font="tb-8"),
+                render.Text("%s" % start_compass, color="#FFFFFF", font= "tb-8"),
+                render.Text("%s" % magnitude, color="#FFFF00", font = "tb-8"),
+
+            ],
+        )
+
+        return render.Root(
+            child=render.Row(
+                children=[
+                    col1,
+                    col2,
+                    col3
+                ],
+            ),
+        )
+
+
+    else:
+        # No filtered passes found
+        ttl_time = 3600
+        return render.Text("No passes found", color="#FF0000")
+        
 
 
 def get_schema():
@@ -105,88 +202,4 @@ def get_schema():
     )
 
 
-def get_request(lat, lng, api_key):
-
-    #https://api.n2yo.com/rest/v1/satellite/visualpasses/25544/38.74/-9.14/0/2/10/&apiKey=ACDRCD-Z7US6X-WD9ZXB-58TV
-    url = 'https://api.n2yo.com/rest/v1/satellite/visualpasses/%s/%s/%s/%s/%s/%s/&apiKey=%s' % (SAT_ID, lat, lng, ALTITUDE, NUM_DAYS, MIN_DURATION, api_key)
-    response = http.get(url, ttl_seconds = 3600)
-        
-    if response.status_code != 200:
-        fail("API request failed with status %d" % response.status_code)
-    return response.json()
-
-
-def filter_pass(data):
-    filtered_passes = [pass_data for pass_data in data['passes'] if pass_data['maxEl'] > MIN_ELEVATION and pass_data['mag'] < MIN_MAGNITUDE]
-    return filtered_passes
-
-
-def main(config):
-    
-    #api_key = config.get("apiKey", None)
-    #api_key = secret.decrypt("AV6+xWcEvzMwMjDopeYhz7Sgvzl61DC1GYYV6/TFcu2g+wlhvXg3QkXOUBGq9GK6rOeQWw1puCSqg45mULja/ZhcrBSoWSWmA6yG+1t50xA5AW+slpSHXut/NYOTNlvFhAk0J8LWFNMsETuS8DlCKYaPkXI9SoGXlC3zHpngfA==")
-    api_key = "ACDRCD-Z7US6X-WD9ZXB-58TV"
-    # Get longditude and latitude from location
-    location = json.decode(config.get("location", DEFAULT_LOCATION))
-    lat = float(location["lat"])
-    lng = float(location["lng"])
- 
-    # Get whether to display in 24h format
-    display24hour = config.bool("24_hour", DEFAULT_24_HOUR)
-
-    data = get_request(lat, lng, api_key)
-        
-    filtered_passes = filter_pass(data)
-
-    #filtered_passes = filter_pass(data, MIN_ELEVATION, MIN_MAGNITUDE)
-
-    if filtered_passes:  # Check if there are any filtered passes
-        # Take information only from the first pass
-        first_pass_data = filtered_passes[0]
-        utc_time_seconds = int(first_pass_data['startUTC'])  # Convert to integer
-        start_compass = first_pass_data['startAzCompass']
-        magnitude = first_pass_data['mag']
-        
-        # Convert UTC time to human-readable format
-        utc_time = time.from_timestamp(utc_time_seconds)
-
-        if display24hour:
-            time_human_readable = utc_time.format("15:04")  # Adjust format string
-        else:
-            time_human_readable = utc_time.format("3:04 PM")  # Adjust format string
-
-        col1 = render.Column(
-            expanded=True,
-            main_align="center",
-            cross_align="center",  # Center align text vertically
-            children=[
-                render.Image(src=ISS_IMG),
-                render.Image(src=MAG_IMG),
-                render.Image(src=EYE_IMG),
-           ],
-        )
-        
-        col2 = render.Column(
-            expanded=True,
-            main_align="center",
-            cross_align="center",  # Center align text vertically
-            children=[
-                render.Text("%s" % time_human_readable, color="#FF0000", font="tb-8"),
-                render.Text("%s" % start_compass, color="#FFFFFF", font= "tb-8"),
-                render.Text("%s" % magnitude, color="#FFFF00", font = "tb-8"),
-
-            ],
-        )
-
-        return render.Root(
-            child=render.Row(
-                children=[
-                    col1,
-                    col2
-                ],
-            ),
-        )
-    
-    else:
-        # No filtered passes found
-        return render.Text("No passes found", color="#FF0000")
+#https://api.n2yo.com/rest/v1/satellite/visualpasses/25544/38.74/-9.14/0/2/10/&apiKey=ACDRCD-Z7US6X-WD9ZXB-58TV
